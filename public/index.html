@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>TikTok Blur Cam</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/style.css">
+  
+  <!-- MediaPipe Hands, Camera & Drawing CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Fullscreen Camera View -->
+  <div class="video-container">
+    <video id="webcam-video" playsinline muted autoplay></video>
+    <canvas id="output-canvas"></canvas>
+  </div>
+
+  <!-- Tombol Kontrol Pojok Atas (Musik & Bantuan) -->
+  <div class="top-controls">
+    <button class="icon-btn" id="music-toggle-btn" aria-label="Putar / Jeda Musik" title="Putar / Jeda Musik">
+      <span id="music-icon">▶</span>
+    </button>
+    <button class="icon-btn" id="help-btn" aria-label="Bantuan Panduan" title="Panduan Singkat">
+      ?
+    </button>
+  </div>
+
+  <!-- Audio Autoplay Prompt Toast -->
+  <div class="audio-hint" id="audio-hint">
+    🎵 Klik tombol musik ▶ atau sentuh layar untuk memutar musik
+  </div>
+
+  <!-- Popup Panduan Singkat -->
+  <div class="help-modal" id="help-modal">
+    <div class="help-box">
+      <h3>✌️ Panduan Cara Pakai</h3>
+      <div class="guide-list">
+        <div class="guide-item">
+          <span class="guide-icon">✌️</span>
+          <div>
+            <strong>Pose Peace Sign untuk Blur</strong>
+            <p>Angkat jari telunjuk & tengah ke kamera untuk mengaktifkan efek blur otomatis.</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">🖐️</span>
+          <div>
+            <strong>Garis Bantuan (2 Tangan)</strong>
+            <p>Rangka jari (skeleton) akan muncul otomatis mendeteksi hingga 2 tangan sekaligus saat belum pose.</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">🎵</span>
+          <div>
+            <strong>Kontrol Musik</strong>
+            <p>Klik tombol <strong>▶ / ⏸</strong> di pojok kanan atas untuk memutar atau menjeda lagu (otomatis loop jeda 2 detik).</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-icon">✨</span>
+          <div>
+            <strong>Kembali Normal</strong>
+            <p>Turunkan tangan untuk membuat kamera kembali jernih.</p>
+          </div>
+        </div>
+      </div>
+      <button class="btn-ok" id="btn-close-help">Mengerti</button>
+    </div>
+  </div>
+
+  <!-- Audio Element -->
+  <audio id="bg-audio" src="/song.mp3" preload="auto"></audio>
+
+  <script src="/app.js"></script>
+</body>
+</html>

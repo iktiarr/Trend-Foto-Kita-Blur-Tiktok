@@ -2,3 +2,9 @@ envku/
 env/
 .env
 .claude
+__pycache__/
+*.py[cod]
+*$py.class
+.vercel/
+.DS_Store
+Thumbs.db
