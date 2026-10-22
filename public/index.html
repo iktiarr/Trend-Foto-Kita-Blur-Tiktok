@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>TikTok Blur Cam</title>
-  <meta name="theme-color" content="#f8fafc">
+  <meta name="theme-color" content="#000000">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico">
   
@@ -21,7 +21,7 @@
     #color-toast.visible { opacity: 1 !important; }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 w-full h-full h-[100dvh] overflow-hidden flex items-center justify-center select-none m-0 p-0 font-sans">
+<body class="bg-black text-slate-800 w-full h-full h-[100dvh] overflow-hidden flex items-center justify-center select-none m-0 p-0 font-sans">
   
   <!-- SVG Filter untuk Memperbaiki Bug Penukaran Warna Merah-Biru Kamera Android -->
   <svg class="hidden absolute w-0 h-0 pointer-events-none" aria-hidden="true" width="0" height="0">
@@ -34,13 +34,13 @@
     </filter>
   </svg>
 
-  <!-- Camera Container (Spacious & Responsive) -->
-  <div class="relative w-screen h-screen h-[100dvh] flex items-center justify-center bg-slate-100 overflow-hidden">
-    <!-- NATIVE VIDEO: Hardware-accelerated direct rendering with smooth 60fps cinematic blur -->
-    <video id="webcam-video" playsinline muted autoplay class="w-full h-full object-contain -scale-x-100 block bg-slate-100"></video>
+  <!-- Camera Container (Fullscreen Edge-to-Edge, Tanpa Bar Putih) -->
+  <div class="relative w-screen h-screen h-[100dvh] flex items-center justify-center bg-black overflow-hidden">
+    <!-- NATIVE VIDEO: Fullscreen object-cover tanpa ada sisa ruang putih -->
+    <video id="webcam-video" playsinline muted autoplay class="w-full h-full object-cover -scale-x-100 block"></video>
     
-    <!-- TRANSPARENT SKELETON OVERLAY CANVAS -->
-    <canvas id="skeleton-canvas" class="absolute inset-0 w-full h-full object-contain -scale-x-100 pointer-events-none block"></canvas>
+    <!-- TRANSPARENT SKELETON OVERLAY CANVAS (object-cover sinkron dengan video) -->
+    <canvas id="skeleton-canvas" class="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none block"></canvas>
   </div>
 
   <!-- Top Controls: Color Fix, Music & Help Button (Clean Light Tailwind Theme) -->
@@ -78,7 +78,7 @@
           <span class="text-xl">✌️</span>
           <div>
             <strong class="block text-xs font-bold text-slate-900">Pose Peace Sign</strong>
-            <p class="text-xs text-slate-600 leading-snug">Angkat jari telunjuk & tengah ke kamera. Animasi blur akan masuk secara lembut.</p>
+            <p class="text-xs text-slate-600 leading-snug">Angkat jari telunjuk & tengah ke kamera untuk otomatis blur cepat & halus.</p>
           </div>
         </div>
         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -112,6 +112,6 @@
   <!-- Audio Element -->
   <audio id="bg-audio" src="/song.mp3" preload="auto"></audio>
 
-  <script src="/app.js?v=5.0"></script>
+  <script src="/app.js?v=6.0"></script>
 </body>
 </html>

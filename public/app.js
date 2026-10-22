@@ -22,7 +22,7 @@ const btnCloseHelp = document.getElementById('btn-close-help');
 
 // Blur Animation Configuration
 const MAX_BLUR = 60; // Intensitas blur maksimal (px)
-const BLUR_LERP_SPEED = 0.08; // Kecepatan transisi: pelan, lembut & sinematik
+const BLUR_LERP_SPEED = 0.22; // Kecepatan transisi: cepat, responsif & tetap halus (~200ms)
 let currentBlur = 0;
 let targetBlur = 0;
 
@@ -85,8 +85,8 @@ function updateBlurAnimation() {
 function renderSkeletonWithFade() {
   skeletonCtx.clearRect(0, 0, skeletonCanvas.width, skeletonCanvas.height);
 
-  // Skeleton memudar halus saat blur naik (0 - 20px), dan muncul halus saat blur turun
-  const fadeAlpha = Math.max(0, Math.min(1, 1 - (currentBlur / 22)));
+  // Skeleton memudar halus saat blur naik (0 - 15px), dan muncul halus saat blur turun
+  const fadeAlpha = Math.max(0, Math.min(1, 1 - (currentBlur / 15)));
 
   if (fadeAlpha > 0.01 && latestHandLandmarks.length > 0 && window.drawConnectors && window.HAND_CONNECTIONS) {
     skeletonCtx.save();
