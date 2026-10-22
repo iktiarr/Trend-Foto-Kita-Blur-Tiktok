@@ -14,19 +14,24 @@
   <!-- MediaPipe Hands & Drawing CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    #help-modal.open { opacity: 1 !important; pointer-events: auto !important; }
+    #audio-hint.visible { opacity: 1 !important; }
+  </style>
 </head>
 <body class="bg-slate-100 text-slate-800 w-full h-full h-[100dvh] overflow-hidden flex items-center justify-center select-none m-0 p-0 font-sans">
   
-  <!-- Camera Container (Responsive & Spacious) -->
+  <!-- Camera Container (Spacious & Responsive) -->
   <div class="relative w-screen h-screen h-[100dvh] flex items-center justify-center bg-slate-100 overflow-hidden">
-    <!-- Active Video Element (Visible to browser engine so it decodes immediately without blank white screen) -->
-    <video id="webcam-video" playsinline muted autoplay class="fixed top-0 left-0 w-px h-px opacity-[0.01] pointer-events-none -z-50"></video>
+    <!-- NATIVE VIDEO: Hardware-accelerated direct rendering to eliminate Android canvas blue tint bug -->
+    <video id="webcam-video" playsinline muted autoplay class="w-full h-full object-contain -scale-x-100 transition-[filter] duration-200 block bg-slate-100"></video>
     
-    <!-- Rendered Canvas (Mirrored for selfie, contain for full wide FOV without extreme zoom) -->
-    <canvas id="output-canvas" class="w-full h-full max-w-full max-h-full object-contain block -scale-x-100 bg-slate-100"></canvas>
+    <!-- TRANSPARENT SKELETON OVERLAY CANVAS -->
+    <canvas id="skeleton-canvas" class="absolute inset-0 w-full h-full object-contain -scale-x-100 pointer-events-none block"></canvas>
   </div>
 
-  <!-- Top Controls: Music & Help Button (Clean Light Theme) -->
+  <!-- Top Controls: Music & Help Button (Clean Light Tailwind Theme) -->
   <div class="fixed top-4 right-4 flex items-center gap-2.5 z-50">
     <button id="music-toggle-btn" class="w-11 h-11 rounded-full bg-white/95 border border-slate-200 text-slate-800 shadow-md hover:bg-slate-50 hover:shadow-lg active:scale-95 flex items-center justify-center text-base font-bold transition-all duration-150 backdrop-blur-sm cursor-pointer" aria-label="Putar / Jeda Musik" title="Putar / Jeda Musik">
       <span id="music-icon">▶</span>
@@ -36,7 +41,7 @@
     </button>
   </div>
 
-  <!-- Audio Prompt Toast (Hanya tampil jika browser mobile membatasi autoplay) -->
+  <!-- Audio Prompt Toast -->
   <div id="audio-hint" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold shadow-lg pointer-events-none z-40 transition-opacity duration-300 opacity-0 whitespace-nowrap backdrop-blur-sm">
     🎵 Sentuh layar atau klik ▶ untuk memutar musik
   </div>
@@ -59,7 +64,7 @@
           <span class="text-xl">🖐️</span>
           <div>
             <strong class="block text-xs font-bold text-slate-900">Dukungan 2 Tangan</strong>
-            <p class="text-xs text-slate-600 leading-snug">Garis rangka (skeleton) mendeteksi hingga 2 tangan secara bersamaan.</p>
+            <p class="text-xs text-slate-600 leading-snug">Garis rangka mendeteksi hingga 2 tangan secara bersamaan.</p>
           </div>
         </div>
         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">

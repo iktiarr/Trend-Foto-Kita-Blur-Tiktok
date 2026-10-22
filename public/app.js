@@ -1,11 +1,11 @@
 /**
- * TikTok Blur Cam – Clean Real-Time Peace Sign Blur
- * Tailwind UI, 100% Native Camera Color (Fix Blue Tint), Zero White-Screen Lag
+ * TikTok Blur Cam – Direct Hardware Video Rendering
+ * Solves mobile blue tint completely by using native <video> with CSS blur filter.
  */
 
 const videoElement = document.getElementById('webcam-video');
-const canvasElement = document.getElementById('output-canvas');
-const canvasCtx = canvasElement.getContext('2d');
+const skeletonCanvas = document.getElementById('skeleton-canvas');
+const skeletonCtx = skeletonCanvas.getContext('2d');
 const audio = document.getElementById('bg-audio');
 const audioHint = document.getElementById('audio-hint');
 const musicToggleBtn = document.getElementById('music-toggle-btn');
@@ -14,16 +14,13 @@ const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const btnCloseHelp = document.getElementById('btn-close-help');
 
-const BLUR_STRENGTH = 60; // Gaussian Blur intensity
+const BLUR_STRENGTH = 60; // Intensitas Blur CSS
 
-// State
-let isPeaceSignDetected = false;
-let latestHandLandmarks = null;
 let isAudioPausedManually = false;
 let isHandsProcessing = false;
 
 // ---------------------------------------------------------------------------
-// 1. Audio Controls & 2-Second Loop Delay
+// 1. Audio Playback & Tombol Play / Pause (Loop Jeda 2 Detik)
 // ---------------------------------------------------------------------------
 
 function updateMusicButtonState() {
@@ -45,7 +42,7 @@ audio.addEventListener('pause', () => {
   updateMusicButtonState();
 });
 
-// Event saat lagu selesai: jeda 2 detik lalu putar ulang jika tidak sedang dijeda manual
+// Event saat lagu selesai: jeda 2 detik lalu putar ulang JIKA tidak dijeda manual
 audio.addEventListener('ended', () => {
   if (!isAudioPausedManually) {
     setTimeout(() => {
@@ -57,7 +54,7 @@ audio.addEventListener('ended', () => {
   }
 });
 
-// Tombol Play / Pause
+// Klik tombol Play / Pause
 musicToggleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (audio.paused) {
@@ -79,7 +76,7 @@ function tryPlayAudio() {
         if (audioHint) audioHint.classList.remove('visible');
       })
       .catch(() => {
-        // Jika browser membatasi autoplay otomatis sebelum ada klik, tampilkan petunjuk
+        // Jika browser membatasi autoplay otomatis sebelum ada interaksi
         updateMusicButtonState();
         if (audioHint) audioHint.classList.add('visible');
 
@@ -118,7 +115,7 @@ helpModal.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Logika Deteksi Peace Sign (Index & Middle Up, Ring & Pinky Down)
+// 3. Logika Deteksi Peace Sign
 // ---------------------------------------------------------------------------
 
 function isExtended(landmarks, tipIdx, pipIdx) {
@@ -135,67 +132,69 @@ function isPeaceSign(landmarks) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Render Loop Kanvas (Warna 100% Asli Kamera Hardware, Nol Layar Putih)
+// 4. Deteksi Tangan MediaPipe & Penerapan Efek Blur pada Video Asli
 // ---------------------------------------------------------------------------
 
-function startRenderLoop() {
-  function renderFrame() {
-    if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
-      if (canvasElement.width !== videoElement.videoWidth || canvasElement.height !== videoElement.videoHeight) {
-        canvasElement.width = videoElement.videoWidth;
-        canvasElement.height = videoElement.videoHeight;
-      }
-
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-      if (isPeaceSignDetected) {
-        // Efek Blur saat peace sign terdeteksi
-        canvasCtx.filter = `blur(${BLUR_STRENGTH}px)`;
-        canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-        canvasCtx.filter = 'none';
-      } else {
-        // Gambar LANGSUNG dari videoElement (Warna Asli, bukan texture WebGL MediaPipe yang terbalik)
-        canvasCtx.filter = 'none';
-        canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-
-        // Gambar skeleton untuk 1 atau 2 tangan jika terdeteksi
-        if (latestHandLandmarks && latestHandLandmarks.length > 0 && window.drawConnectors && window.HAND_CONNECTIONS) {
-          for (const landmarks of latestHandLandmarks) {
-            window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
-              color: '#0066ff',
-              lineWidth: 3,
-            });
-            if (window.drawLandmarks) {
-              window.drawLandmarks(canvasCtx, landmarks, {
-                color: '#ff3b30',
-                fillColor: '#ffffff',
-                lineWidth: 1.5,
-                radius: 4,
-              });
-            }
-          }
-        }
-      }
-
-      canvasCtx.restore();
+function onHandResults(results) {
+  if (videoElement.videoWidth > 0) {
+    if (skeletonCanvas.width !== videoElement.videoWidth || skeletonCanvas.height !== videoElement.videoHeight) {
+      skeletonCanvas.width = videoElement.videoWidth;
+      skeletonCanvas.height = videoElement.videoHeight;
     }
-
-    requestAnimationFrame(renderFrame);
   }
 
-  requestAnimationFrame(renderFrame);
+  const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
+  let peaceDetected = false;
+
+  if (hasHands) {
+    for (const landmarks of results.multiHandLandmarks) {
+      if (isPeaceSign(landmarks)) {
+        peaceDetected = true;
+        break;
+      }
+    }
+  }
+
+  // Bersihkan kanvas garis skeleton
+  skeletonCtx.clearRect(0, 0, skeletonCanvas.width, skeletonCanvas.height);
+
+  if (peaceDetected) {
+    // Terapkan efek Blur langsung pada elemen video asli
+    // (Bebas dari bug penukaran warna merah-biru kanvas WebGL Android!)
+    videoElement.style.filter = `blur(${BLUR_STRENGTH}px)`;
+  } else {
+    // Kembalikan video ke jernih (tanpa filter sama sekali)
+    videoElement.style.filter = 'none';
+
+    // Gambar garis bantuan rangka (skeleton) pada kanvas transparan
+    if (hasHands && window.drawConnectors && window.HAND_CONNECTIONS) {
+      for (const landmarks of results.multiHandLandmarks) {
+        window.drawConnectors(skeletonCtx, landmarks, window.HAND_CONNECTIONS, {
+          color: '#0066ff',
+          lineWidth: 3,
+        });
+        if (window.drawLandmarks) {
+          window.drawLandmarks(skeletonCtx, landmarks, {
+            color: '#ff3b30',
+            fillColor: '#ffffff',
+            lineWidth: 1.5,
+            radius: 4,
+          });
+        }
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
-// 5. Inisialisasi MediaPipe Hands & Kamera Langsung (Auto-Start)
+// 5. Inisialisasi Kamera Native (Langsung Muncul, Nol Layar Putih)
 // ---------------------------------------------------------------------------
 
 async function initApp() {
   // 1. Putar audio otomatis
   tryPlayAudio();
 
-  // 2. Mulai kamera langsung via getUserMedia native
+  // 2. Hubungkan kamera langsung via getUserMedia hardware video
   try {
     const isPortrait = window.innerHeight > window.innerWidth;
     const constraints = {
@@ -213,34 +212,34 @@ async function initApp() {
     videoElement.muted = true;
     await videoElement.play();
 
-    // 3. Mulai loop render kanvas seketika (langsung menampilkan gambar, tidak akan putih)
-    startRenderLoop();
+    // Pastikan ukuran skeleton canvas sinkron saat video mulai berjalan
+    videoElement.addEventListener('loadedmetadata', () => {
+      skeletonCanvas.width = videoElement.videoWidth;
+      skeletonCanvas.height = videoElement.videoHeight;
+    });
   } catch (err) {
-    console.error('Kamera gagal dibuka:', err);
+    console.error('Kamera gagal dimulai:', err);
     alert('Mohon izinkan akses kamera pada browser Anda.');
     return;
   }
 
-  // 4. Inisialisasi MediaPipe Hands di latar belakang
+  // 3. Inisialisasi MediaPipe Hands
   try {
     const hands = new window.Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
     });
 
     hands.setOptions({
-      maxNumHands: 2, // Mendukung hingga 2 tangan
+      maxNumHands: 2, // Mendukung hingga 2 tangan sekaligus
       modelComplexity: 1,
       minDetectionConfidence: 0.6,
       minTrackingConfidence: 0.5,
     });
 
-    hands.onResults((results) => {
-      latestHandLandmarks = results.multiHandLandmarks || [];
-      isPeaceSignDetected = latestHandLandmarks.some((landmarks) => isPeaceSign(landmarks));
-    });
+    hands.onResults(onHandResults);
 
-    // Loop pengiriman frame ke MediaPipe secara kontinu
-    async function handDetectionLoop() {
+    // Loop pemrosesan deteksi tangan berkelanjutan
+    async function detectionLoop() {
       if (!isHandsProcessing && videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
         isHandsProcessing = true;
         try {
@@ -251,16 +250,16 @@ async function initApp() {
           isHandsProcessing = false;
         }
       }
-      requestAnimationFrame(handDetectionLoop);
+      requestAnimationFrame(detectionLoop);
     }
 
-    requestAnimationFrame(handDetectionLoop);
+    requestAnimationFrame(detectionLoop);
   } catch (err) {
     console.error('MediaPipe Hands init error:', err);
   }
 }
 
-// Jalankan otomatis begitu halaman dimuat
+// Jalankan otomatis saat halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
