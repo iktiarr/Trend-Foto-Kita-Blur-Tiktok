@@ -4,72 +4,82 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>TikTok Blur Cam</title>
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#f8fafc">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico">
-  <link rel="stylesheet" href="/style.css">
   
-  <!-- MediaPipe Hands, Camera & Drawing CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- MediaPipe Hands & Drawing CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
-<body>
-  <!-- Fullscreen Camera View -->
-  <div class="video-container">
-    <video id="webcam-video" playsinline muted autoplay></video>
-    <canvas id="output-canvas"></canvas>
+<body class="bg-slate-100 text-slate-800 w-full h-full h-[100dvh] overflow-hidden flex items-center justify-center select-none m-0 p-0 font-sans">
+  
+  <!-- Camera Container (Responsive & Spacious) -->
+  <div class="relative w-screen h-screen h-[100dvh] flex items-center justify-center bg-slate-100 overflow-hidden">
+    <!-- Active Video Element (Visible to browser engine so it decodes immediately without blank white screen) -->
+    <video id="webcam-video" playsinline muted autoplay class="fixed top-0 left-0 w-px h-px opacity-[0.01] pointer-events-none -z-50"></video>
+    
+    <!-- Rendered Canvas (Mirrored for selfie, contain for full wide FOV without extreme zoom) -->
+    <canvas id="output-canvas" class="w-full h-full max-w-full max-h-full object-contain block -scale-x-100 bg-slate-100"></canvas>
   </div>
 
-  <!-- Tombol Kontrol Pojok Atas (Musik & Bantuan) -->
-  <div class="top-controls">
-    <button class="icon-btn" id="music-toggle-btn" aria-label="Putar / Jeda Musik" title="Putar / Jeda Musik">
+  <!-- Top Controls: Music & Help Button (Clean Light Theme) -->
+  <div class="fixed top-4 right-4 flex items-center gap-2.5 z-50">
+    <button id="music-toggle-btn" class="w-11 h-11 rounded-full bg-white/95 border border-slate-200 text-slate-800 shadow-md hover:bg-slate-50 hover:shadow-lg active:scale-95 flex items-center justify-center text-base font-bold transition-all duration-150 backdrop-blur-sm cursor-pointer" aria-label="Putar / Jeda Musik" title="Putar / Jeda Musik">
       <span id="music-icon">▶</span>
     </button>
-    <button class="icon-btn" id="help-btn" aria-label="Bantuan Panduan" title="Panduan Singkat">
+    <button id="help-btn" class="w-11 h-11 rounded-full bg-white/95 border border-slate-200 text-slate-800 shadow-md hover:bg-slate-50 hover:shadow-lg active:scale-95 flex items-center justify-center text-base font-bold transition-all duration-150 backdrop-blur-sm cursor-pointer" aria-label="Bantuan Panduan" title="Panduan Singkat">
       ?
     </button>
   </div>
 
-  <!-- Audio Autoplay Prompt Toast -->
-  <div class="audio-hint" id="audio-hint">
-    🎵 Klik tombol musik ▶ atau sentuh layar untuk memutar musik
+  <!-- Audio Prompt Toast (Hanya tampil jika browser mobile membatasi autoplay) -->
+  <div id="audio-hint" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/95 border border-slate-200 text-slate-700 px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold shadow-lg pointer-events-none z-40 transition-opacity duration-300 opacity-0 whitespace-nowrap backdrop-blur-sm">
+    🎵 Sentuh layar atau klik ▶ untuk memutar musik
   </div>
 
-  <!-- Popup Panduan Singkat -->
-  <div class="help-modal" id="help-modal">
-    <div class="help-box">
-      <h3>✌️ Panduan Cara Pakai</h3>
-      <div class="guide-list">
-        <div class="guide-item">
-          <span class="guide-icon">✌️</span>
+  <!-- Help Modal (Clean Light Theme with Tailwind) -->
+  <div id="help-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+      <h3 class="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
+        <span>✌️</span> Panduan Cara Pakai
+      </h3>
+      <div class="flex flex-col gap-2.5 my-4">
+        <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <span class="text-xl">✌️</span>
           <div>
-            <strong>Pose Peace Sign untuk Blur</strong>
-            <p>Angkat jari telunjuk & tengah ke kamera untuk mengaktifkan efek blur otomatis.</p>
+            <strong class="block text-xs font-bold text-slate-900">Pose Peace Sign</strong>
+            <p class="text-xs text-slate-600 leading-snug">Angkat jari telunjuk & tengah ke kamera untuk otomatis blur.</p>
           </div>
         </div>
-        <div class="guide-item">
-          <span class="guide-icon">🖐️</span>
+        <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <span class="text-xl">🖐️</span>
           <div>
-            <strong>Garis Bantuan (2 Tangan)</strong>
-            <p>Rangka jari (skeleton) akan muncul otomatis mendeteksi hingga 2 tangan sekaligus saat belum pose.</p>
+            <strong class="block text-xs font-bold text-slate-900">Dukungan 2 Tangan</strong>
+            <p class="text-xs text-slate-600 leading-snug">Garis rangka (skeleton) mendeteksi hingga 2 tangan secara bersamaan.</p>
           </div>
         </div>
-        <div class="guide-item">
-          <span class="guide-icon">🎵</span>
+        <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <span class="text-xl">🎵</span>
           <div>
-            <strong>Kontrol Musik</strong>
-            <p>Klik tombol <strong>▶ / ⏸</strong> di pojok kanan atas untuk memutar atau menjeda lagu (otomatis loop jeda 2 detik).</p>
+            <strong class="block text-xs font-bold text-slate-900">Kontrol Musik</strong>
+            <p class="text-xs text-slate-600 leading-snug">Klik tombol ▶ / ⏸ untuk putar atau jeda lagu (loop jeda 2 detik).</p>
           </div>
         </div>
-        <div class="guide-item">
-          <span class="guide-icon">✨</span>
+        <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+          <span class="text-xl">✨</span>
           <div>
-            <strong>Kembali Normal</strong>
-            <p>Turunkan tangan untuk membuat kamera kembali jernih.</p>
+            <strong class="block text-xs font-bold text-slate-900">Kembali Jernih</strong>
+            <p class="text-xs text-slate-600 leading-snug">Turunkan tangan untuk membuat kamera kembali jernih normal.</p>
           </div>
         </div>
       </div>
-      <button class="btn-ok" id="btn-close-help">Mengerti</button>
+      <button id="btn-close-help" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl transition-colors cursor-pointer text-sm">
+        Mengerti
+      </button>
     </div>
   </div>
 

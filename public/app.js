@@ -1,5 +1,6 @@
 /**
- * TikTok Blur Cam – Clean Real-Time Peace Sign Blur (Light Theme, Natural Color, Responsive FOV)
+ * TikTok Blur Cam – Clean Real-Time Peace Sign Blur
+ * Tailwind UI, 100% Native Camera Color (Fix Blue Tint), Zero White-Screen Lag
  */
 
 const videoElement = document.getElementById('webcam-video');
@@ -13,10 +14,16 @@ const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const btnCloseHelp = document.getElementById('btn-close-help');
 
-const BLUR_STRENGTH = 60; // Intensitas Gaussian Blur
+const BLUR_STRENGTH = 60; // Gaussian Blur intensity
+
+// State
+let isPeaceSignDetected = false;
+let latestHandLandmarks = null;
+let isAudioPausedManually = false;
+let isHandsProcessing = false;
 
 // ---------------------------------------------------------------------------
-// 1. Audio Playback & Kontrol Play / Pause
+// 1. Audio Controls & 2-Second Loop Delay
 // ---------------------------------------------------------------------------
 
 function updateMusicButtonState() {
@@ -38,19 +45,26 @@ audio.addEventListener('pause', () => {
   updateMusicButtonState();
 });
 
-// Event saat lagu selesai: jeda 2 detik lalu putar ulang (loop)
+// Event saat lagu selesai: jeda 2 detik lalu putar ulang jika tidak sedang dijeda manual
 audio.addEventListener('ended', () => {
-  setTimeout(() => {
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-  }, 2000);
+  if (!isAudioPausedManually) {
+    setTimeout(() => {
+      if (!isAudioPausedManually) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      }
+    }, 2000);
+  }
 });
 
+// Tombol Play / Pause
 musicToggleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (audio.paused) {
+    isAudioPausedManually = false;
     audio.play().catch(() => {});
   } else {
+    isAudioPausedManually = true;
     audio.pause();
   }
 });
@@ -65,24 +79,27 @@ function tryPlayAudio() {
         if (audioHint) audioHint.classList.remove('visible');
       })
       .catch(() => {
+        // Jika browser membatasi autoplay otomatis sebelum ada klik, tampilkan petunjuk
         updateMusicButtonState();
         if (audioHint) audioHint.classList.add('visible');
 
-        const unlockAudio = () => {
-          audio.play().catch(() => {});
+        const unlockOnFirstTouch = () => {
+          if (!isAudioPausedManually) {
+            audio.play().catch(() => {});
+          }
           if (audioHint) audioHint.classList.remove('visible');
-          window.removeEventListener('click', unlockAudio);
-          window.removeEventListener('touchstart', unlockAudio);
+          window.removeEventListener('click', unlockOnFirstTouch);
+          window.removeEventListener('touchstart', unlockOnFirstTouch);
         };
 
-        window.addEventListener('click', unlockAudio);
-        window.addEventListener('touchstart', unlockAudio);
+        window.addEventListener('click', unlockOnFirstTouch);
+        window.addEventListener('touchstart', unlockOnFirstTouch);
       });
   }
 }
 
 // ---------------------------------------------------------------------------
-// 2. Tombol Panduan (Ikon ?) di Pojok Atas
+// 2. Tombol Panduan (Ikon ?)
 // ---------------------------------------------------------------------------
 
 helpBtn.addEventListener('click', (e) => {
@@ -101,7 +118,7 @@ helpModal.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Deteksi Peace Sign
+// 3. Logika Deteksi Peace Sign (Index & Middle Up, Ring & Pinky Down)
 // ---------------------------------------------------------------------------
 
 function isExtended(landmarks, tipIdx, pipIdx) {
@@ -118,109 +135,132 @@ function isPeaceSign(landmarks) {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Pemrosesan Video MediaPipe (Warna Asli Hardware Video, Tanpa Blue Filter)
+// 4. Render Loop Kanvas (Warna 100% Asli Kamera Hardware, Nol Layar Putih)
 // ---------------------------------------------------------------------------
 
-function onHandResults(results) {
-  // Gunakan resolusi asli videoElement untuk menjaga rasio aspek dan ketajaman
-  const streamWidth = videoElement.videoWidth || (results.image && results.image.width) || 640;
-  const streamHeight = videoElement.videoHeight || (results.image && results.image.height) || 480;
-
-  if (canvasElement.width !== streamWidth || canvasElement.height !== streamHeight) {
-    canvasElement.width = streamWidth;
-    canvasElement.height = streamHeight;
-  }
-
-  const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
-  let peaceDetected = false;
-
-  if (hasHands) {
-    for (const landmarks of results.multiHandLandmarks) {
-      if (isPeaceSign(landmarks)) {
-        peaceDetected = true;
-        break;
+function startRenderLoop() {
+  function renderFrame() {
+    if (videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
+      if (canvasElement.width !== videoElement.videoWidth || canvasElement.height !== videoElement.videoHeight) {
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
       }
-    }
-  }
 
-  canvasCtx.save();
-  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-  // PENTING: Gunakan videoElement langsung (BUKAN results.image)
-  // MediaPipe results.image menukar kanal Red-Blue di beberapa browser Android (bug warna biru).
-  // videoElement memberikan warna 100% asli alami dari sensor kamera tanpa filter sama sekali.
-  const sourceImage = (videoElement.readyState >= 2) ? videoElement : results.image;
+      if (isPeaceSignDetected) {
+        // Efek Blur saat peace sign terdeteksi
+        canvasCtx.filter = `blur(${BLUR_STRENGTH}px)`;
+        canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.filter = 'none';
+      } else {
+        // Gambar LANGSUNG dari videoElement (Warna Asli, bukan texture WebGL MediaPipe yang terbalik)
+        canvasCtx.filter = 'none';
+        canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
 
-  if (peaceDetected) {
-    // Blur aktif ketika peace sign terdeteksi
-    canvasCtx.filter = `blur(${BLUR_STRENGTH}px)`;
-    canvasCtx.drawImage(sourceImage, 0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.filter = 'none';
-  } else {
-    // Kamera normal dengan warna 100% asli
-    canvasCtx.filter = 'none';
-    canvasCtx.drawImage(sourceImage, 0, 0, canvasElement.width, canvasElement.height);
-
-    // Rangka garis tangan (skeleton) untuk kedua tangan jika terdeteksi
-    if (hasHands && window.drawConnectors && window.HAND_CONNECTIONS) {
-      for (const landmarks of results.multiHandLandmarks) {
-        window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
-          color: '#0066ff',
-          lineWidth: 3,
-        });
-        if (window.drawLandmarks) {
-          window.drawLandmarks(canvasCtx, landmarks, {
-            color: '#ff3b30',
-            fillColor: '#ffffff',
-            lineWidth: 1.5,
-            radius: 4,
-          });
+        // Gambar skeleton untuk 1 atau 2 tangan jika terdeteksi
+        if (latestHandLandmarks && latestHandLandmarks.length > 0 && window.drawConnectors && window.HAND_CONNECTIONS) {
+          for (const landmarks of latestHandLandmarks) {
+            window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {
+              color: '#0066ff',
+              lineWidth: 3,
+            });
+            if (window.drawLandmarks) {
+              window.drawLandmarks(canvasCtx, landmarks, {
+                color: '#ff3b30',
+                fillColor: '#ffffff',
+                lineWidth: 1.5,
+                radius: 4,
+              });
+            }
+          }
         }
       }
+
+      canvasCtx.restore();
     }
+
+    requestAnimationFrame(renderFrame);
   }
 
-  canvasCtx.restore();
+  requestAnimationFrame(renderFrame);
 }
 
 // ---------------------------------------------------------------------------
-// 5. Inisialisasi Kamera Responsive (Jarak Luas / Tidak Zoom Terlalu Dekat)
+// 5. Inisialisasi MediaPipe Hands & Kamera Langsung (Auto-Start)
 // ---------------------------------------------------------------------------
 
-async function initCamera() {
+async function initApp() {
+  // 1. Putar audio otomatis
   tryPlayAudio();
 
-  const hands = new window.Hands({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-  });
+  // 2. Mulai kamera langsung via getUserMedia native
+  try {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    const constraints = {
+      video: {
+        facingMode: 'user',
+        width: { ideal: isPortrait ? 720 : 1280 },
+        height: { ideal: isPortrait ? 1280 : 720 },
+      },
+      audio: false,
+    };
 
-  hands.setOptions({
-    maxNumHands: 2, // Mendukung hingga 2 tangan
-    modelComplexity: 1,
-    minDetectionConfidence: 0.6,
-    minTrackingConfidence: 0.5,
-  });
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoElement.srcObject = stream;
+    videoElement.playsInline = true;
+    videoElement.muted = true;
+    await videoElement.play();
 
-  hands.onResults(onHandResults);
+    // 3. Mulai loop render kanvas seketika (langsung menampilkan gambar, tidak akan putih)
+    startRenderLoop();
+  } catch (err) {
+    console.error('Kamera gagal dibuka:', err);
+    alert('Mohon izinkan akses kamera pada browser Anda.');
+    return;
+  }
 
-  // Sesuaikan resolusi kamera dengan orientasi layar HP (portrait vs landscape)
-  // agar kamera tidak memaksa rasio landscape yang menyebabkan zoom ekstrem
-  const isPortrait = window.innerHeight > window.innerWidth;
-  const idealWidth = isPortrait ? 720 : 1280;
-  const idealHeight = isPortrait ? 1280 : 720;
+  // 4. Inisialisasi MediaPipe Hands di latar belakang
+  try {
+    const hands = new window.Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
 
-  const camera = new window.Camera(videoElement, {
-    onFrame: async () => {
-      await hands.send({ image: videoElement });
-    },
-    width: idealWidth,
-    height: idealHeight,
-    facingMode: 'user', // Kamera depan (selfie)
-  });
+    hands.setOptions({
+      maxNumHands: 2, // Mendukung hingga 2 tangan
+      modelComplexity: 1,
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5,
+    });
 
-  await camera.start();
+    hands.onResults((results) => {
+      latestHandLandmarks = results.multiHandLandmarks || [];
+      isPeaceSignDetected = latestHandLandmarks.some((landmarks) => isPeaceSign(landmarks));
+    });
+
+    // Loop pengiriman frame ke MediaPipe secara kontinu
+    async function handDetectionLoop() {
+      if (!isHandsProcessing && videoElement.readyState >= 2 && videoElement.videoWidth > 0) {
+        isHandsProcessing = true;
+        try {
+          await hands.send({ image: videoElement });
+        } catch (e) {
+          console.warn('Hands process frame error:', e);
+        } finally {
+          isHandsProcessing = false;
+        }
+      }
+      requestAnimationFrame(handDetectionLoop);
+    }
+
+    requestAnimationFrame(handDetectionLoop);
+  } catch (err) {
+    console.error('MediaPipe Hands init error:', err);
+  }
 }
 
+// Jalankan otomatis begitu halaman dimuat
 window.addEventListener('DOMContentLoaded', () => {
-  initCamera();
+  initApp();
 });
