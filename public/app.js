@@ -1,5 +1,10 @@
 /**
- * TikTok Blur Cam – Direct Hardware Video Rendering with Multi-Mode Color Fix
+ * TikTok Blur Cam – Direct Hardware Video Rendering
+ * Features:
+ * 1. Silky-Smooth Cinematic Blur Animation (Fade-in on pose, Fade-out on release)
+ * 2. Multi-Mode Anti-Blue Color Correction (RGB Swap Matrix, Hue 180°, Normal)
+ * 3. 2-Hand Support with Smooth Skeleton Crossfade
+ * 4. Audio Looper with 2-Second Pause & True Pause Control
  */
 
 const videoElement = document.getElementById('webcam-video');
@@ -15,53 +20,100 @@ const helpBtn = document.getElementById('help-btn');
 const helpModal = document.getElementById('help-modal');
 const btnCloseHelp = document.getElementById('btn-close-help');
 
-const BLUR_STRENGTH = 60; // Intensitas Gaussian Blur
+// Blur Animation Configuration
+const MAX_BLUR = 60; // Intensitas blur maksimal (px)
+const BLUR_LERP_SPEED = 0.08; // Kecepatan transisi: pelan, lembut & sinematik
+let currentBlur = 0;
+let targetBlur = 0;
 
-// Color modes: 'swap' (RGB Swap Matrix), 'hue' (Hue 180°), 'normal' (No filter)
+// Color Modes: 'swap' (RGB Swap Matrix), 'hue' (Hue 180°), 'normal' (No filter)
 const COLOR_MODES = ['swap', 'hue', 'normal'];
 const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-let colorModeIndex = 0; // Default: 'swap' on mobile (Langsung aktifkan anti-biru)
+let colorModeIndex = 0; // Default: 'swap' (Anti-Biru aktif di awal untuk mobile)
 
-// Muat preferensi warna jika ada
 const savedColorMode = localStorage.getItem('camera_color_mode');
 if (savedColorMode && COLOR_MODES.includes(savedColorMode)) {
   colorModeIndex = COLOR_MODES.indexOf(savedColorMode);
 } else if (!isMobileDevice) {
-  // Laptop biasanya normal, jadi default normal
   colorModeIndex = COLOR_MODES.indexOf('normal');
 }
 
 let isPeaceSignDetected = false;
 let isAudioPausedManually = false;
 let isHandsProcessing = false;
+let latestHandLandmarks = [];
 let toastTimeout = null;
 
 // ---------------------------------------------------------------------------
-// 1. Logika Filter Warna & Blur
+// 1. Animasi Blur Halus (Cinematic Linear Interpolation Loop)
 // ---------------------------------------------------------------------------
 
-function getColorFilterString(withBlur = false) {
+function updateBlurAnimation() {
+  targetBlur = isPeaceSignDetected ? MAX_BLUR : 0;
+
+  // LERP: Transisi bertahap antara blur saat ini dan target
+  const diff = targetBlur - currentBlur;
+  if (Math.abs(diff) > 0.05) {
+    currentBlur += diff * BLUR_LERP_SPEED;
+  } else {
+    currentBlur = targetBlur;
+  }
+
+  // Rakit filter gabungan (Color Mode + Nilai Blur Bertahap)
   const mode = COLOR_MODES[colorModeIndex];
-  let filter = '';
+  let filterStr = '';
 
   if (mode === 'swap') {
-    filter = 'url(#swap-rb)';
+    filterStr = 'url(#swap-rb)';
   } else if (mode === 'hue') {
-    filter = 'hue-rotate(180deg)';
-  } else {
-    filter = '';
+    filterStr = 'hue-rotate(180deg)';
   }
 
-  if (withBlur) {
-    filter = filter ? `${filter} blur(${BLUR_STRENGTH}px)` : `blur(${BLUR_STRENGTH}px)`;
+  if (currentBlur > 0.2) {
+    const blurPart = `blur(${currentBlur.toFixed(1)}px)`;
+    filterStr = filterStr ? `${filterStr} ${blurPart}` : blurPart;
   }
 
-  return filter || 'none';
+  videoElement.style.filter = filterStr || 'none';
+
+  // Render Skeleton dengan efek memudar (crossfade) lembut
+  renderSkeletonWithFade();
+
+  requestAnimationFrame(updateBlurAnimation);
 }
 
-function applyCurrentFilter() {
-  videoElement.style.filter = getColorFilterString(isPeaceSignDetected);
+function renderSkeletonWithFade() {
+  skeletonCtx.clearRect(0, 0, skeletonCanvas.width, skeletonCanvas.height);
+
+  // Skeleton memudar halus saat blur naik (0 - 20px), dan muncul halus saat blur turun
+  const fadeAlpha = Math.max(0, Math.min(1, 1 - (currentBlur / 22)));
+
+  if (fadeAlpha > 0.01 && latestHandLandmarks.length > 0 && window.drawConnectors && window.HAND_CONNECTIONS) {
+    skeletonCtx.save();
+    skeletonCtx.globalAlpha = fadeAlpha;
+
+    for (const landmarks of latestHandLandmarks) {
+      window.drawConnectors(skeletonCtx, landmarks, window.HAND_CONNECTIONS, {
+        color: '#0066ff',
+        lineWidth: 3,
+      });
+      if (window.drawLandmarks) {
+        window.drawLandmarks(skeletonCtx, landmarks, {
+          color: '#ff3b30',
+          fillColor: '#ffffff',
+          lineWidth: 1.5,
+          radius: 4,
+        });
+      }
+    }
+
+    skeletonCtx.restore();
+  }
 }
+
+// ---------------------------------------------------------------------------
+// 2. Tombol & Notifikasi Warna Kamera
+// ---------------------------------------------------------------------------
 
 function showColorToast(text) {
   if (colorToast) {
@@ -74,14 +126,11 @@ function showColorToast(text) {
   }
 }
 
-// Tombol Ubah Warna Kamera
 colorToggleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   colorModeIndex = (colorModeIndex + 1) % COLOR_MODES.length;
   const currentMode = COLOR_MODES[colorModeIndex];
   localStorage.setItem('camera_color_mode', currentMode);
-
-  applyCurrentFilter();
 
   if (currentMode === 'swap') {
     showColorToast('🎨 Mode: Anti-Biru (RGB Swap)');
@@ -93,7 +142,7 @@ colorToggleBtn.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// 2. Audio Playback & Tombol Play / Pause (Jeda 2 Detik saat Loop)
+// 3. Audio Controls & 2-Second Loop Delay
 // ---------------------------------------------------------------------------
 
 function updateMusicButtonState() {
@@ -115,7 +164,7 @@ audio.addEventListener('pause', () => {
   updateMusicButtonState();
 });
 
-// Event saat lagu selesai: jeda 2 detik lalu putar ulang
+// Event saat lagu selesai: jeda 2 detik lalu putar ulang JIKA tidak dijeda manual
 audio.addEventListener('ended', () => {
   if (!isAudioPausedManually) {
     setTimeout(() => {
@@ -168,7 +217,7 @@ function tryPlayAudio() {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Tombol Panduan (Ikon ?)
+// 4. Tombol Panduan (Ikon ?)
 // ---------------------------------------------------------------------------
 
 helpBtn.addEventListener('click', (e) => {
@@ -187,7 +236,7 @@ helpModal.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Deteksi Peace Sign
+// 5. Logika Deteksi Peace Sign
 // ---------------------------------------------------------------------------
 
 function isExtended(landmarks, tipIdx, pipIdx) {
@@ -204,7 +253,7 @@ function isPeaceSign(landmarks) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. Callback MediaPipe Hands
+// 6. Callback MediaPipe Hands
 // ---------------------------------------------------------------------------
 
 function onHandResults(results) {
@@ -216,8 +265,9 @@ function onHandResults(results) {
   }
 
   const hasHands = results.multiHandLandmarks && results.multiHandLandmarks.length > 0;
-  let peaceDetected = false;
+  latestHandLandmarks = results.multiHandLandmarks || [];
 
+  let peaceDetected = false;
   if (hasHands) {
     for (const landmarks of results.multiHandLandmarks) {
       if (isPeaceSign(landmarks)) {
@@ -227,40 +277,18 @@ function onHandResults(results) {
     }
   }
 
+  // Set state peace sign (Animasi blur akan ditransisikan secara halus di updateBlurAnimation loop)
   isPeaceSignDetected = peaceDetected;
-  applyCurrentFilter();
-
-  // Bersihkan kanvas skeleton
-  skeletonCtx.clearRect(0, 0, skeletonCanvas.width, skeletonCanvas.height);
-
-  // Jika tidak blur, gambar garis rangka untuk tangan yang terdeteksi
-  if (!peaceDetected && hasHands && window.drawConnectors && window.HAND_CONNECTIONS) {
-    for (const landmarks of results.multiHandLandmarks) {
-      window.drawConnectors(skeletonCtx, landmarks, window.HAND_CONNECTIONS, {
-        color: '#0066ff',
-        lineWidth: 3,
-      });
-      if (window.drawLandmarks) {
-        window.drawLandmarks(skeletonCtx, landmarks, {
-          color: '#ff3b30',
-          fillColor: '#ffffff',
-          lineWidth: 1.5,
-          radius: 4,
-        });
-      }
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
-// 6. Inisialisasi Aplikasi (Langsung Muncul, Nol Layar Putih)
+// 7. Inisialisasi Aplikasi (Native Video + Background Detection)
 // ---------------------------------------------------------------------------
 
 async function initApp() {
   tryPlayAudio();
-  applyCurrentFilter();
 
-  // Buka kamera native hardware
+  // Buka kamera hardware langsung
   try {
     const isPortrait = window.innerHeight > window.innerWidth;
     const constraints = {
@@ -282,13 +310,16 @@ async function initApp() {
       skeletonCanvas.width = videoElement.videoWidth;
       skeletonCanvas.height = videoElement.videoHeight;
     });
+
+    // Mulai loop animasi blur bertahap (60 FPS LERP)
+    requestAnimationFrame(updateBlurAnimation);
   } catch (err) {
     console.error('Kamera gagal dimulai:', err);
     alert('Mohon izinkan akses kamera pada browser Anda.');
     return;
   }
 
-  // Inisialisasi MediaPipe Hands di latar belakang
+  // Inisialisasi MediaPipe Hands
   try {
     const hands = new window.Hands({
       locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
@@ -309,7 +340,7 @@ async function initApp() {
         try {
           await hands.send({ image: videoElement });
         } catch (e) {
-          console.warn('Hands error:', e);
+          console.warn('Hands process frame error:', e);
         } finally {
           isHandsProcessing = false;
         }

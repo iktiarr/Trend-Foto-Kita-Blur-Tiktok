@@ -36,8 +36,8 @@
 
   <!-- Camera Container (Spacious & Responsive) -->
   <div class="relative w-screen h-screen h-[100dvh] flex items-center justify-center bg-slate-100 overflow-hidden">
-    <!-- NATIVE VIDEO: Hardware-accelerated direct rendering -->
-    <video id="webcam-video" playsinline muted autoplay class="w-full h-full object-contain -scale-x-100 transition-[filter] duration-200 block bg-slate-100"></video>
+    <!-- NATIVE VIDEO: Hardware-accelerated direct rendering with smooth 60fps cinematic blur -->
+    <video id="webcam-video" playsinline muted autoplay class="w-full h-full object-contain -scale-x-100 block bg-slate-100"></video>
     
     <!-- TRANSPARENT SKELETON OVERLAY CANVAS -->
     <canvas id="skeleton-canvas" class="absolute inset-0 w-full h-full object-contain -scale-x-100 pointer-events-none block"></canvas>
@@ -78,14 +78,14 @@
           <span class="text-xl">✌️</span>
           <div>
             <strong class="block text-xs font-bold text-slate-900">Pose Peace Sign</strong>
-            <p class="text-xs text-slate-600 leading-snug">Angkat jari telunjuk & tengah ke kamera untuk otomatis blur.</p>
+            <p class="text-xs text-slate-600 leading-snug">Angkat jari telunjuk & tengah ke kamera. Animasi blur akan masuk secara lembut.</p>
           </div>
         </div>
         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
           <span class="text-xl">🎨</span>
           <div>
             <strong class="block text-xs font-bold text-slate-900">Tombol Warna (Anti-Biru)</strong>
-            <p class="text-xs text-slate-600 leading-snug">Jika di HP wajah terlihat biru, klik tombol 🎨 untuk memperbaiki warna secara instan.</p>
+            <p class="text-xs text-slate-600 leading-snug">Klik tombol 🎨 untuk beralih mode warna jika kamera HP memiliki warna berbeda.</p>
           </div>
         </div>
         <div class="flex items-start gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -112,6 +112,6 @@
   <!-- Audio Element -->
   <audio id="bg-audio" src="/song.mp3" preload="auto"></audio>
 
-  <script src="/app.js?v=4.0"></script>
+  <script src="/app.js?v=5.0"></script>
 </body>
 </html>
